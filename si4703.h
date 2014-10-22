@@ -21,6 +21,13 @@ enum DIRECTION {
 	UP,
 };
 
+#define DDRRADIO                   DDRB
+#define PORTRADIO                  PORTB
+
+#define RADIO_RST_PIN              4
+#define SET_RST_RADIO              PORTRADIO |= _BV(RADIO_RST_PIN)
+#define CLEAR_RST_RADIO            PORTRADIO &= ~_BV(RADIO_RST_PIN)
+
 #define SI4703_ADDR (0x10<<1) //device address shifted over one
 
 //Define the register names
@@ -65,14 +72,15 @@ enum DIRECTION {
 #define STEREO  8
 
 //functions
-void si4703_setVolume(uint8_t);
+void si4703_setVolume(uint8_t volume);
 void si4703_setChannel();
 uint8_t si4703_getChannel();
 uint8_t si4703_seek(uint8_t direction);
 
-void si4703_init(void);
-void si4703_pull(void);
-void si4703_push(void);
+void si4703_init();
+void si4703_pull();
+void si4703_push();
+void seek_TWI_devices();
 
 
 #endif //SI4703_H

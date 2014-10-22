@@ -15,21 +15,17 @@
 #include "util/delay.h"
 
 //data representation of all 32 bytes 
-uint16_t pancakes[16];
+uint16_t si4703_data_registers[16];
 uint8_t reg_index;
 uint16_t ret;
 
 void si4703_setVolume(uint8_t volume) {
-	printf("2.1\n");
 	if (volume>0x0F) {
 		volume = 0x0F;
 	}
-	printf("2.2\n");
 	si4703_pull();
-	printf("2.3\n");
-	pancakes[SYSCONFIG2] = (pancakes[SYSCONFIG2] & 0xFFF0) | volume; //set volume
+	si4703_data_registers[SYSCONFIG2] = (si4703_data_registers[SYSCONFIG2] & 0xFFF0) | volume; //set volume
 	si4703_push();
-	printf("2.4\n");
 }
 
 //TODO: Figure out of this can be replaced with a uint16_t
@@ -43,31 +39,28 @@ void si4703_setChannel(int newChannel) {
 	newChannel /= 20; //980 / 20 = 49
 	
 	//These steps come from AN230 page 20 rev 0.5
-	printf("1.1\n");
 	si4703_pull();
-	pancakes[CHANNEL] &= 0xFE00; //Clear out the channel bits
-	pancakes[CHANNEL] |= newChannel; //Mask in the new channel
-	pancakes[CHANNEL] |= (1<<TUNE); //Set the TUNE bit to start
+	si4703_data_registers[CHANNEL] &= 0xFE00; //Clear out the channel bits
+	si4703_data_registers[CHANNEL] |= newChannel; //Mask in the new channel
+	si4703_data_registers[CHANNEL] |= (1<<TUNE); //Set the TUNE bit to start
 	si4703_push();
-	printf("1.2\n");
 	
-	while( !(pancakes[STATUSRSSI] & _BV(STC)) ) {
+	while( !(si4703_data_registers[STATUSRSSI] & _BV(STC)) ) {
 		si4703_pull();
 	} //setting channel complete!
-	printf("1.3\n");
-	pancakes[CHANNEL] &= ~(1<<TUNE); //Clear the tune bit after a tune has completed
-	si4703_push();
-	printf("1.4\n");
 	
-	while( (pancakes[STATUSRSSI] & _BV(STC)) ) {
+	si4703_pull();
+	si4703_data_registers[CHANNEL] &= ~(1<<TUNE); //Clear the tune bit after a tune has completed
+	si4703_push();
+	
+	while( (si4703_data_registers[STATUSRSSI] & _BV(STC)) ) {
 		si4703_pull();
 	} //wait for the radio to clean up the STC bit
-	printf("1.5\n");
 }
 
 uint8_t si4703_getChannel() {
 	si4703_pull();
-	ret = pancakes[READCHAN] & 0x03FF; //Mask out everything but the lower 10 bits
+	ret = si4703_data_registers[READCHAN] & 0x03FF; //Mask out everything but the lower 10 bits
 	
 	//freq(MHz) = 0.200(in USA) * Channel + 87.5MHz
 	//x = 0.2 * Chan + 87.5
@@ -79,24 +72,24 @@ uint8_t si4703_getChannel() {
 
 uint8_t si4703_seek(enum DIRECTION dir) {
 	si4703_pull();
-	pancakes[POWERCFG] &= ~(1<<SKMODE); //disable wrapping of frequencies
+	si4703_data_registers[POWERCFG] &= ~(1<<SKMODE); //disable wrapping of frequencies
 	if (dir == DOWN) {
-		pancakes[POWERCFG] &= ~(_BV(UP));
+		si4703_data_registers[POWERCFG] &= ~(_BV(UP));
 	} else {
-		pancakes[POWERCFG] |= _BV(UP);
+		si4703_data_registers[POWERCFG] |= _BV(UP);
 	}
-	pancakes[POWERCFG] |= (_BV(SEEK)); //start seeking
+	si4703_data_registers[POWERCFG] |= (_BV(SEEK)); //start seeking
 	
 	si4703_push();
-	while( !(pancakes[STATUSRSSI] & _BV(STC)) ) {
+	while( !(si4703_data_registers[STATUSRSSI] & _BV(STC)) ) {
 		si4703_pull();
 	} //seek complete!
 	
-	ret = pancakes[STATUSRSSI] & (1<<SFBL); //Store the value of SFBL
+	ret = si4703_data_registers[STATUSRSSI] & (1<<SFBL); //Store the value of SFBL
 	
-	pancakes[POWERCFG] &= ~(_BV(SEEK)); //stop seeking
+	si4703_data_registers[POWERCFG] &= ~(_BV(SEEK)); //stop seeking
 	
-	while( (pancakes[STATUSRSSI] & _BV(STC)) ) {
+	while( (si4703_data_registers[STATUSRSSI] & _BV(STC)) ) {
 		si4703_pull();
 	} //wait for the radio to clean up the STC bit
 	
@@ -104,55 +97,81 @@ uint8_t si4703_seek(enum DIRECTION dir) {
 }
 
 void si4703_init() {
-	printf("0.1\n");
+	
+	DDRB |= _BV(4);//Reset is an output
+	DDRC |= _BV(4);//SDIO is an output
+	//SET_RST_RADIO; //SETH(FM_DDRRESET, FM_RESET);
+	PORTC &= ~_BV(4); //SETH(FM_DDRSDIO, FM_SDIO);
+	//PORTC |= _BV(5);
+	PORTB &= ~_BV(4); //lower the reset pin
+	_delay_ms(1);
+	//PORTC &= _BV(4); //SETL(FM_PORTSDIO, FM_SDIO);
+	PORTB |= _BV(4);  //SETL(FM_PORTRESET, FM_RESET);
+	_delay_ms(10);
+	
+	PORTC |= (_BV(5) | _BV(4));
+	_delay_ms(10);
+	
+	i2c_init();
+	
+	_delay_ms(10);
+	
+	//Turn on radio
 	si4703_pull();
-	printf("0.2\n");
-	pancakes[OSCCTRL] = 0x8100;
+	si4703_data_registers[OSCCTRL] = 0x8100;
 	si4703_push();
-	printf("0.3\n");
 	_delay_ms(500); //Wait for oscillator to settle
 	si4703_pull();
-	printf("0.4\n");
-	pancakes[POWERCFG] = 0x4001; //Enable the IC
-	pancakes[SYSCONFIG1] |= _BV(RDS); //Enable RDS
-	pancakes[SYSCONFIG2] &= ~(_BV(SPACE1) | _BV(SPACE0)); //FOrce 200 kHz channel spacing (USA)
-	pancakes[SYSCONFIG2] &= ~(0x000F); //Turn down for what?!?
-	pancakes[SYSCONFIG2] |= 0x0001; //Lowest volume setting
-	printf("0.5\n");
+	si4703_data_registers[POWERCFG] = 0x4001; //Enable the IC
+	si4703_data_registers[SYSCONFIG1] |= _BV(RDS); //Enable RDS
+	si4703_data_registers[SYSCONFIG2] &= ~(_BV(SPACE1) | _BV(SPACE0)); //FOrce 200 kHz channel spacing (USA)
+	si4703_data_registers[SYSCONFIG2] &= ~(0x000F); //Turn down for what?!?
+	si4703_data_registers[SYSCONFIG2] |= 0x0001; //Lowest volume setting
 	si4703_push();
 	_delay_ms(110); //Waiting the max powerup time for the radio
-	printf("0.6\n");
 }
 
 
 
 //The device starts reading at reg_index 0x0A, and has 32 bytes
 void si4703_pull() {
-	printf("HI\n");
-	i2c_start_wait(SI4703_ADDR || I2C_READ);
-	printf("HELLO\n");
-	for (reg_index=0x00; reg_index<0x10; reg_index++) {
+	
+	//printf("HI\n");
+	i2c_start(SI4703_ADDR | I2C_READ);
+	//printf("HELLO\n");
+	/*for (reg_index=0x00; reg_index<0x10; reg_index++) {
 		printf("?\n");
 		pancakes[(reg_index+0x0A) % 0x10] = i2c_readAck() << 8;
 		printf("!\n");
 		pancakes[(reg_index+0x0A) % 0x10] = i2c_readAck();
+	}*/
+	for(int x = 0x0A ; ; x++) { //Read in these 32 bytes
+		if(x == 0x10) x = 0; //Loop back to zero
+		si4703_data_registers[x] = i2c_readAck() << 8;
+		si4703_data_registers[x] |= i2c_readAck();
+		
+		if(x == 0x08) break; //We're [almost] done!
 	}
-	printf("GREETINGS\n");
-	i2c_stop();
+	
+	si4703_data_registers[0x09] = i2c_readAck() << 8;
+	si4703_data_registers[0x09] |= i2c_readNak();
+
 }
 
 
 //The device starts writing at reg_index 4, and there are only 12 bytes that are controlling
 void si4703_push() {
-	i2c_start_wait(SI4703_ADDR || I2C_WRITE);
+	
+	i2c_start_wait(SI4703_ADDR | I2C_WRITE);
 	for (reg_index=0x00; reg_index<0x06; reg_index++) {
-		i2c_write(pancakes[reg_index+2] >> 8);
-		i2c_write(pancakes[reg_index+2] & 0x00FF);
+		i2c_write(si4703_data_registers[reg_index+2] >> 8);
+		i2c_write(si4703_data_registers[reg_index+2] & 0x00FF);
 	}
+	
 	i2c_stop();
 }
 
-/* shudder... shudder shudder shudder shudder 
+/* shudder... shudder shudder shudder shudder */
 void seek_TWI_devices() {
 	uint8_t i = 0; 
 	printf("Looking for devices...\n");
@@ -161,8 +180,10 @@ void seek_TWI_devices() {
 			printf("There is a Device at 0x%02x", i);
 			i2c_stop();
 			printf("\n");
+		} else {
+			printf("0x%02x\n", i);
 		}
-		_delay_ms(5);
+		_delay_ms(2000);
 	}
 	printf("Searched for devices 0x00 to 0x7F\n");
-}  */
+} 

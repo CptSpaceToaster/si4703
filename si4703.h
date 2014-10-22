@@ -16,9 +16,12 @@
 #define SI4703_H
 
 //definitions
+enum DIRECTION {
+	DOWN,
+	UP,
+};
+
 #define SI4703_ADDR (0x10<<1) //device address shifted over one
-#define SEEK_DOWN  0 //Direction used for seeking. Default is down
-#define SEEK_UP  1
 
 //Define the register names
 #define DEVICEID 0x00
@@ -62,8 +65,14 @@
 #define STEREO  8
 
 //functions
+void si4703_setVolume(uint8_t);
+void si4703_setChannel();
+uint8_t si4703_getChannel();
+uint8_t si4703_seek(uint8_t direction);
+
 void si4703_init(void);
-void si_4703_pull(void);
-void si_4703_push(void);
+void si4703_pull(void);
+void si4703_push(void);
+
 
 #endif //SI4703_H

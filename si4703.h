@@ -74,13 +74,13 @@ enum DIRECTION {
 //functions
 void si4703_setVolume(uint8_t volume);
 void si4703_setChannel();
-uint8_t si4703_getChannel();
+uint16_t si4703_getChannel();
 uint8_t si4703_seek(uint8_t direction);
 
 void si4703_init();
+void si4703_powerOn();
 void si4703_pull();
 void si4703_push();
-void seek_TWI_devices();
-
+//void seek_TWI_devices();
 
 #endif //SI4703_H

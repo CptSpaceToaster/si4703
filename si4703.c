@@ -58,7 +58,7 @@ void si4703_setChannel(int newChannel) {
 	} //wait for the radio to clean up the STC bit
 }
 
-uint8_t si4703_getChannel() {
+uint16_t si4703_getChannel() {
 	si4703_pull();
 	ret = si4703_data_registers[READCHAN] & 0x03FF; //Mask out everything but the lower 10 bits
 	
@@ -72,8 +72,8 @@ uint8_t si4703_getChannel() {
 
 uint8_t si4703_seek(enum DIRECTION dir) {
 	si4703_pull();
-	si4703_data_registers[POWERCFG] &= ~(1<<SKMODE); //disable wrapping of frequencies
-	if (dir == DOWN) {
+	si4703_data_registers[POWERCFG] &= ~(1<<SKMODE); //enable wrapping of frequencies
+	if (dir == UP) {
 		si4703_data_registers[POWERCFG] &= ~(_BV(UP));
 	} else {
 		si4703_data_registers[POWERCFG] |= _BV(UP);
@@ -88,7 +88,7 @@ uint8_t si4703_seek(enum DIRECTION dir) {
 	ret = si4703_data_registers[STATUSRSSI] & (1<<SFBL); //Store the value of SFBL
 	
 	si4703_data_registers[POWERCFG] &= ~(_BV(SEEK)); //stop seeking
-	
+	si4703_push();
 	while( (si4703_data_registers[STATUSRSSI] & _BV(STC)) ) {
 		si4703_pull();
 	} //wait for the radio to clean up the STC bit
@@ -96,8 +96,7 @@ uint8_t si4703_seek(enum DIRECTION dir) {
 	return ret;
 }
 
-void si4703_init() {
-	
+void si4703_init() {	
 	DDRB |= _BV(4);//Reset is an output
 	DDRC |= _BV(4);//SDIO is an output
 	//SET_RST_RADIO; //SETH(FM_DDRRESET, FM_RESET);
@@ -111,12 +110,10 @@ void si4703_init() {
 	
 	PORTC |= (_BV(5) | _BV(4));
 	_delay_ms(10);
-	
-	i2c_init();
-	
-	_delay_ms(10);
-	
-	//Turn on radio
+}
+
+/* Call init() first */
+void si4703_powerOn() {
 	si4703_pull();
 	si4703_data_registers[OSCCTRL] = 0x8100;
 	si4703_push();
@@ -126,16 +123,14 @@ void si4703_init() {
 	si4703_data_registers[SYSCONFIG1] |= _BV(RDS); //Enable RDS
 	si4703_data_registers[SYSCONFIG2] &= ~(_BV(SPACE1) | _BV(SPACE0)); //FOrce 200 kHz channel spacing (USA)
 	si4703_data_registers[SYSCONFIG2] &= ~(0x000F); //Turn down for what?!?
-	si4703_data_registers[SYSCONFIG2] |= 0x0001; //Lowest volume setting
+	//si4703_data_registers[SYSCONFIG2] |= 0x0001; //Lowest volume setting
 	si4703_push();
 	_delay_ms(110); //Waiting the max powerup time for the radio
 }
 
 
-
 //The device starts reading at reg_index 0x0A, and has 32 bytes
 void si4703_pull() {
-	
 	//printf("HI\n");
 	i2c_start(SI4703_ADDR | I2C_READ);
 	//printf("HELLO\n");
@@ -172,6 +167,7 @@ void si4703_push() {
 }
 
 /* shudder... shudder shudder shudder shudder */
+/*
 void seek_TWI_devices() {
 	uint8_t i = 0; 
 	printf("Looking for devices...\n");
@@ -187,3 +183,4 @@ void seek_TWI_devices() {
 	}
 	printf("Searched for devices 0x00 to 0x7F\n");
 } 
+*/

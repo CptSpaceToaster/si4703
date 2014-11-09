@@ -159,22 +159,3 @@ void si4703_push(void) {
 	
 	i2c_stop();
 }
-
-/* shudder... shudder shudder shudder shudder */
-/*
-void seek_TWI_devices() {
-	uint8_t i = 0; 
-	printf("Looking for devices...\n");
-	for (i=0; i<=0x7F; i++) {
-		if (!i2c_start(i<<1)) {
-			printf("There is a Device at 0x%02x", i);
-			i2c_stop();
-			printf("\n");
-		} else {
-			printf("0x%02x\n", i);
-		}
-		_delay_ms(2000);
-	}
-	printf("Searched for devices 0x00 to 0x7F\n");
-} 
-*/

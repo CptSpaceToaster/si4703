@@ -1,7 +1,7 @@
 /*
- * si4703 library
+ * si4703.h
  * 
- * Authored by CptSpaceToaster 10/21/2014
+ * Author: CptSpaceToaster
  *
  * References: 
  * Programming Guide: http://www.silabs.com/support%20documents/technicaldocs/AN230.pdf
@@ -21,12 +21,9 @@ enum DIRECTION {
 	UP,
 };
 
-#define DDRRADIO                   DDRB
-#define PORTRADIO                  PORTB
-
-#define RADIO_RST_PIN              4
-#define SET_RST_RADIO              PORTRADIO |= _BV(RADIO_RST_PIN)
-#define CLEAR_RST_RADIO            PORTRADIO &= ~_BV(RADIO_RST_PIN)
+#define SI4703_RST_PIN               4
+#define SET_SI4703_RESET             PORTB |= _BV(SI4703_RST_PIN)
+#define CLEAR_SI4703_RESET           PORTB &= ~_BV(SI4703_RST_PIN)
 
 #define SI4703_ADDR (0x10<<1) //device address shifted over one
 
@@ -71,16 +68,21 @@ enum DIRECTION {
 #define RDSS  11
 #define STEREO  8
 
+#define SI4703_FM_HIGH               1079
+#define SI4703_FM_LOW                881
+#define SI4703_VOL_HIGH              15
+#define SI4703_VOL_LOW               0
+
 //functions
 void si4703_setVolume(uint8_t volume);
-void si4703_setChannel();
-uint16_t si4703_getChannel();
+void si4703_setChannel(int newChannel);
+uint16_t si4703_getChannel(void);
 uint8_t si4703_seek(uint8_t direction);
 
-void si4703_init();
-void si4703_powerOn();
-void si4703_pull();
-void si4703_push();
+void si4703_init(void);
+void si4703_powerOn(void);
+void si4703_pull(void);
+void si4703_push(void);
 //void seek_TWI_devices();
 
 #endif //SI4703_H

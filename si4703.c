@@ -1,7 +1,6 @@
 /*
  * si4703.c
  *
- * Created: 10/18/2014 3:30:02 PM
  * Author: CaptainSpaceToaster
  * 
  * Some of the defines came from a Nathan Seidle from Sparkfun
@@ -58,7 +57,7 @@ void si4703_setChannel(int newChannel) {
 	} //wait for the radio to clean up the STC bit
 }
 
-uint16_t si4703_getChannel() {
+uint16_t si4703_getChannel(void) {
 	si4703_pull();
 	ret = si4703_data_registers[READCHAN] & 0x03FF; //Mask out everything but the lower 10 bits
 	
@@ -73,10 +72,12 @@ uint16_t si4703_getChannel() {
 uint8_t si4703_seek(enum DIRECTION dir) {
 	si4703_pull();
 	si4703_data_registers[POWERCFG] &= ~(1<<SKMODE); //enable wrapping of frequencies
-	if (dir == UP) {
-		si4703_data_registers[POWERCFG] &= ~(_BV(UP));
+	if (dir == DOWN) {
+		printf("up\n");
+		si4703_data_registers[POWERCFG] &= ~(_BV(SEEKUP));
 	} else {
-		si4703_data_registers[POWERCFG] |= _BV(UP);
+		printf("down\n");
+		si4703_data_registers[POWERCFG] |= _BV(SEEKUP);
 	}
 	si4703_data_registers[POWERCFG] |= (_BV(SEEK)); //start seeking
 	
@@ -86,17 +87,6 @@ uint8_t si4703_seek(enum DIRECTION dir) {
 	} //seek complete!
 	
 	ret = si4703_data_registers[STATUSRSSI] & (1<<SFBL); //Store the value of SFBL
-	
-	si4703_data_registers[POWERCFG] &= ~(_BV(SEEK)); //stop seeking
-	si4703_push();
-	while( (si4703_data_registers[STATUSRSSI] & _BV(STC)) ) {
-		si4703_pull();
-	} //wait for the radio to clean up the STC bit
-	
-	return ret;
-}
-
-void si4703_init() {	
 	DDRB |= _BV(4);//Reset is an output
 	DDRC |= _BV(4);//SDIO is an output
 	//SET_RST_RADIO; //SETH(FM_DDRRESET, FM_RESET);
@@ -110,10 +100,23 @@ void si4703_init() {
 	
 	PORTC |= (_BV(5) | _BV(4));
 	_delay_ms(10);
+	si4703_data_registers[POWERCFG] &= ~(_BV(SEEK)); //stop seeking
+	si4703_push();
+	while( (si4703_data_registers[STATUSRSSI] & _BV(STC)) ) {
+		si4703_pull();
+	} //wait for the radio to clean up the STC bit
+	
+	return ret;
+}
+
+void si4703_init(void) {	
+	CLEAR_SI4703_RESET;
+	_delay_ms(1);
+	SET_SI4703_RESET;
 }
 
 /* Call init() first */
-void si4703_powerOn() {
+void si4703_powerOn(void) {
 	si4703_pull();
 	si4703_data_registers[OSCCTRL] = 0x8100;
 	si4703_push();
@@ -130,16 +133,8 @@ void si4703_powerOn() {
 
 
 //The device starts reading at reg_index 0x0A, and has 32 bytes
-void si4703_pull() {
-	//printf("HI\n");
+void si4703_pull(void) {
 	i2c_start(SI4703_ADDR | I2C_READ);
-	//printf("HELLO\n");
-	/*for (reg_index=0x00; reg_index<0x10; reg_index++) {
-		printf("?\n");
-		pancakes[(reg_index+0x0A) % 0x10] = i2c_readAck() << 8;
-		printf("!\n");
-		pancakes[(reg_index+0x0A) % 0x10] = i2c_readAck();
-	}*/
 	for(int x = 0x0A ; ; x++) { //Read in these 32 bytes
 		if(x == 0x10) x = 0; //Loop back to zero
 		si4703_data_registers[x] = i2c_readAck() << 8;
@@ -150,12 +145,11 @@ void si4703_pull() {
 	
 	si4703_data_registers[0x09] = i2c_readAck() << 8;
 	si4703_data_registers[0x09] |= i2c_readNak();
-
 }
 
 
 //The device starts writing at reg_index 4, and there are only 12 bytes that are controlling
-void si4703_push() {
+void si4703_push(void) {
 	
 	i2c_start_wait(SI4703_ADDR | I2C_WRITE);
 	for (reg_index=0x00; reg_index<0x06; reg_index++) {

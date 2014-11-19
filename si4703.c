@@ -18,7 +18,7 @@ uint16_t si4703_data_registers[16];
 uint8_t reg_index;
 uint16_t ret;
 
-void si4703_setVolume(uint8_t volume) {
+void si4703_set_volume(uint8_t volume) {
 	if (volume>0x0F) {
 		volume = 0x0F;
 	}
@@ -28,7 +28,7 @@ void si4703_setVolume(uint8_t volume) {
 }
 
 //TODO: Figure out of this can be replaced with a uint16_t
-void si4703_setChannel(int newChannel) {
+void si4703_set_channel(int newChannel) {
 	//Freq(MHz) = 0.200(in USA) * Channel + 87.5MHz
 	//97.3 = 0.2 * Chan + 87.5
 	//9.8 / 0.2 = 49
@@ -57,7 +57,7 @@ void si4703_setChannel(int newChannel) {
 	} //wait for the radio to clean up the STC bit
 }
 
-uint16_t si4703_getChannel(void) {
+uint16_t si4703_get_channel(void) {
 	si4703_pull();
 	ret = si4703_data_registers[READCHAN] & 0x03FF; //Mask out everything but the lower 10 bits
 	
@@ -116,7 +116,7 @@ void si4703_init(void) {
 }
 
 /* Call init() first */
-void si4703_powerOn(void) {
+void si4703_power_on(void) {
 	si4703_pull();
 	si4703_data_registers[OSCCTRL] = 0x8100;
 	si4703_push();
